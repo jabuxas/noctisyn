@@ -15,8 +15,7 @@ type model struct {
 
 func initialModel() model {
 	return model{
-		// Our to-do list is a grocery list
-		choices: []string{"Buy carrots", "Buy celery", "Buy kohlrabi"},
+		choices: []string{"kami", "kami again", "ln!!"},
 
 		// A map which indicates which choices are selected. We're using
 		// the  map like a mathematical set. The keys refer to the indexes
@@ -74,7 +73,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	// The header
-	s := "What should we buy at the market?\n\n"
+	s := "Welcome to:\n\n"
 
 	// Iterate over our choices
 	for i, choice := range m.choices {

@@ -1,4 +1,4 @@
-module github.com/jabuxas/kami
+module github.com/jabuxas/noctisyn
 
 go 1.25.4
 
