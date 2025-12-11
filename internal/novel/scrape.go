@@ -65,3 +65,34 @@ func GetNovelURL(query string) (string, error) {
 	}
 	return matchURL, nil
 }
+
+func FetchBook(novelURL string) (*Book, error) {
+	c := collector.Clone()
+
+	book := &Book{SourceURL: novelURL}
+
+	c.OnHTML("body", func(h *colly.HTMLElement) { // runs on novel page
+		book.Title = strings.TrimSpace(h.ChildText("h3.title"))
+		book.Author = strings.TrimSpace(h.ChildText(".info a"))
+		book.Description = strings.TrimSpace(h.ChildText(".desc-text"))
+
+		var chIndex = 1
+		h.ForEach("ul.list-chapter li a, div.chapters a[href*='chapter']", func(_ int, el *colly.HTMLElement) {
+			chURL := el.Request.AbsoluteURL(el.Attr("href"))
+			title := strings.TrimSpace(el.Text)
+			book.Chapters = append(book.Chapters, Chapter{
+				Index: chIndex,
+				Title: title,
+				URL:   chURL,
+			})
+			chIndex++
+		})
+	})
+
+	if err := c.Visit(novelURL); err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("Scraped book:\n%s\nby\n%s\n(%d chapters)\n", book.Title, book.Author, len(book.Chapters))
+	return book, nil
+}
