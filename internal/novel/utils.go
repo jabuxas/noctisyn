@@ -1,4 +1,4 @@
-package ln
+package novel
 
 import (
 	"strings"

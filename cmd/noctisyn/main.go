@@ -1,7 +1,12 @@
 package main
 
-import "github.com/jabuxas/noctisyn/internal/ln"
+import (
+	"fmt"
+
+	"github.com/jabuxas/noctisyn/internal/novel"
+)
 
 func main() {
-	ln.Scrape("warlock magus")
+	url, _ := novel.GetNovelURL("warlock magus")
+	fmt.Println(url)
 }
