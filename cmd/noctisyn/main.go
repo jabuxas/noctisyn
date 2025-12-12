@@ -16,9 +16,7 @@ func main() {
 		fmt.Println(err.Error())
 	}
 
-	// for _, ch := range book.Chapters {
-	// 	fmt.Printf("ch index: %d\nch title: %s\nch html: %s\nch url: %s\n", ch.Index, ch.Title, ch.HTML, ch.URL)
-	// }
+	fmt.Println(book.Chapters[38].Text)
 
 	fmt.Printf("Scraped book: %s by %s\n(%d chapters)\nDesc: %s\n", book.Title, book.Author, len(book.Chapters), book.Description)
 }

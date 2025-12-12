@@ -12,7 +12,7 @@ type Chapter struct {
 	Index int
 	Title string
 	URL   string
-	HTML  string
+	Text  string
 }
 
 type Book struct {
@@ -90,14 +90,11 @@ func FetchBook(novelURL string) (*Book, error) {
 	})
 
 	chapterCollector.OnHTML("#chapter-content", func(h *colly.HTMLElement) {
-		html, err := h.DOM.Html()
-		if err != nil {
-			fmt.Printf("failed to get html for chapter: %v\n", err)
-		}
+		text := extractChapterText(h)
 		u := h.Request.URL.String()
 		for i := range book.Chapters {
 			if book.Chapters[i].URL == u {
-				book.Chapters[i].HTML = html
+				book.Chapters[i].Text = text
 				break
 			}
 		}

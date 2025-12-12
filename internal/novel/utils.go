@@ -2,6 +2,9 @@ package novel
 
 import (
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/gocolly/colly/v2"
 )
 
 func wordsInOrder(s, query string) bool {
@@ -17,4 +20,17 @@ func wordsInOrder(s, query string) bool {
 		pos += idx + len(w)
 	}
 	return true
+}
+
+func extractChapterText(h *colly.HTMLElement) string {
+	var parts []string
+
+	h.DOM.Find("p").Each(func(_ int, p *goquery.Selection) {
+		t := strings.TrimSpace(p.Text())
+		if t != "" {
+			parts = append(parts, t)
+		}
+	})
+
+	return strings.Join(parts, "\n\n")
 }
