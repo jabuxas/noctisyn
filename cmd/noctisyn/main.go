@@ -11,16 +11,17 @@ import (
 )
 
 type model struct {
-	input   textinput.Model
-	loading bool
-	result  string
-	err     error
+	input    textinput.Model
+	loading  bool
+	results  []string
+	selected int
+	err      error
 }
 
 // message types
 type searchMsg struct {
-	url string
-	err error
+	urls []string
+	err  error
 }
 
 func initialModel() model {
@@ -46,22 +47,35 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
+			if len(m.results) > 0 {
+				return m, nil
+			}
 			q := m.input.Value()
 			if q == "" {
 				return m, nil
 			}
 			m.loading = true
-			m.result = ""
 			m.err = nil
+			m.results = nil
+			m.selected = 0
 			return m, doSearch(q)
+		case tea.KeyUp:
+			if len(m.results) > 0 && m.selected > 0 {
+				m.selected--
+			}
+		case tea.KeyDown:
+			if len(m.results) > 0 && m.selected < len(m.results)-1 {
+				m.selected++
+			}
 		}
 	case searchMsg:
 		m.loading = false
 		if msg.err != nil {
 			m.err = msg.err
-		} else {
-			m.result = msg.url
+			return m, nil
 		}
+		m.results = msg.urls
+		m.selected = 0
 		return m, nil
 	}
 
@@ -78,9 +92,15 @@ func (m model) View() string {
 		s += "searching...\n"
 	} else if m.err != nil {
 		s += fmt.Sprintf("error: %v\n", m.err)
-	} else if m.result != "" {
-		s += fmt.Sprintf("match URL: %s\n", m.result)
-		s += "press enter again to search another, or ctrl+c to quit.\n"
+	} else if len(m.results) > 0 {
+		s += "results (↑/↓ to move, enter to download):\n\n"
+		for i, u := range m.results {
+			cursor := " "
+			if i == m.selected {
+				cursor = ">"
+			}
+			s += fmt.Sprintf("%s %s\n", cursor, u)
+		}
 	} else {
 		s += "type a query and press enter.\n"
 	}
@@ -91,7 +111,7 @@ func (m model) View() string {
 func doSearch(query string) tea.Cmd {
 	return func() tea.Msg {
 		url, err := scraper.Search(query)
-		return searchMsg{url: url, err: err}
+		return searchMsg{urls: url, err: err}
 	}
 }
 

@@ -35,36 +35,30 @@ func init() {
 	)
 }
 
-func Search(query string) (string, error) {
+func Search(query string) ([]string, error) {
 	c := collector.Clone()
 
-	var matchURL string
+	var matched []string
 
 	c.OnHTML("a[href]", func(h *colly.HTMLElement) {
 		title := strings.TrimSpace(h.Text)
 		href := h.Attr("href")
 		absURL := h.Request.AbsoluteURL(href)
 
-		if matchURL != "" {
-			return
-		}
 		// when scraping i get 3 urls, and only the 2nd one matches
 		if wordsInOrder(title, query) && wordsInOrder(href, query) && !strings.Contains(h.Text, "Search") {
-			matchURL = absURL
+			matched = append(matched, absURL)
 		}
 	})
 
 	search := fmt.Sprintf("https://novelfull.net/search?keyword=%s", url.QueryEscape(query))
 	if err := c.Visit(search); err != nil {
-		return "", err
+		return matched, err
 	}
 
 	c.Wait()
 
-	if matchURL == "" {
-		return "", fmt.Errorf("no matching novel found for '%s'", query)
-	}
-	return matchURL, nil
+	return matched, nil
 }
 
 func Fetch(novelURL string) (*Book, error) {
