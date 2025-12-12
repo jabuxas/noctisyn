@@ -71,12 +71,12 @@ func FetchBook(novelURL string) (*Book, error) {
 
 	book := &Book{SourceURL: novelURL}
 
-	c.OnHTML("body", func(h *colly.HTMLElement) { // runs on novel page
-		book.Title = strings.TrimSpace(h.ChildText("h3.title"))
-		book.Author = strings.TrimSpace(h.ChildText(".info a"))
-		book.Description = strings.TrimSpace(h.ChildText(".desc-text"))
+	c.OnHTML("body", func(h *colly.HTMLElement) {
+		book.Title = strings.TrimSpace(h.ChildText(".books h3.title"))
+		book.Author = strings.TrimSpace(h.ChildText("div.info > div:first-child > a:nth-child(2)"))
+		book.Description = strings.TrimSpace(h.ChildText("div.desc-text"))
 
-		var chIndex = 1
+		chIndex := 1
 		h.ForEach("ul.list-chapter li a, div.chapters a[href*='chapter']", func(_ int, el *colly.HTMLElement) {
 			chURL := el.Request.AbsoluteURL(el.Attr("href"))
 			title := strings.TrimSpace(el.Text)
@@ -93,6 +93,6 @@ func FetchBook(novelURL string) (*Book, error) {
 		return nil, err
 	}
 
-	fmt.Printf("Scraped book:\n%s\nby\n%s\n(%d chapters)\n", book.Title, book.Author, len(book.Chapters))
+	fmt.Printf("Scraped book:\n%s\nby\n%s\n(%d chapters)\n\n\n Desc: %s\n", book.Title, book.Author, len(book.Chapters), book.Description)
 	return book, nil
 }
