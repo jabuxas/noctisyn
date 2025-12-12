@@ -13,15 +13,15 @@ import (
 type model struct {
 	input    textinput.Model
 	loading  bool
-	results  []string
+	results  []*scraper.Book
 	selected int
 	err      error
 }
 
 // message types
 type searchMsg struct {
-	urls []string
-	err  error
+	books []*scraper.Book
+	err   error
 }
 
 func initialModel() model {
@@ -74,7 +74,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			return m, nil
 		}
-		m.results = msg.urls
+		m.results = msg.books
 		m.selected = 0
 		return m, nil
 	}
@@ -99,7 +99,7 @@ func (m model) View() string {
 			if i == m.selected {
 				cursor = ">"
 			}
-			s += fmt.Sprintf("%s %s\n", cursor, u)
+			s += fmt.Sprintf("%s %s\n", cursor, u.Title)
 		}
 	} else {
 		s += "type a query and press enter.\n"
@@ -111,7 +111,7 @@ func (m model) View() string {
 func doSearch(query string) tea.Cmd {
 	return func() tea.Msg {
 		url, err := scraper.Search(query)
-		return searchMsg{urls: url, err: err}
+		return searchMsg{books: url, err: err}
 	}
 }
 

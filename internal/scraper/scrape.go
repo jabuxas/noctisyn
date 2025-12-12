@@ -35,10 +35,10 @@ func init() {
 	)
 }
 
-func Search(query string) ([]string, error) {
+func Search(query string) ([]*Book, error) {
 	c := collector.Clone()
 
-	var matched []string
+	var matched []*Book
 
 	c.OnHTML("a[href]", func(h *colly.HTMLElement) {
 		title := strings.TrimSpace(h.Text)
@@ -47,7 +47,7 @@ func Search(query string) ([]string, error) {
 
 		// when scraping i get 3 urls, and only the 2nd one matches
 		if wordsInOrder(title, query) && wordsInOrder(href, query) && !strings.Contains(h.Text, "Search") {
-			matched = append(matched, absURL)
+			matched = append(matched, &Book{Title: title, SourceURL: absURL})
 		}
 	})
 
