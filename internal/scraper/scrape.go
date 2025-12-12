@@ -20,6 +20,7 @@ type Book struct {
 	Author      string
 	SourceURL   string
 	Description string
+	CoverURL    string
 	Chapters    []Chapter
 }
 
@@ -89,6 +90,15 @@ func Fetch(novelURL string) (*Book, error) {
 		})
 	})
 
+	infoCollector.OnHTML("img", func(h *colly.HTMLElement) {
+		src := h.Attr("src")
+		if src == "" {
+			return
+		}
+		coverURL := h.Request.AbsoluteURL(src)
+		book.CoverURL = coverURL
+	})
+
 	infoCollector.OnHTML("li.next > a[href]", func(h *colly.HTMLElement) {
 		err := infoCollector.Visit(h.Request.AbsoluteURL(h.Attr("href")))
 		if err != nil {
@@ -115,7 +125,7 @@ func Fetch(novelURL string) (*Book, error) {
 
 	for _, ch := range book.Chapters {
 		if err := chapterCollector.Visit(ch.URL); err != nil {
-			fmt.Printf("queue failed %s: %v\n", ch.Title, err)
+			return nil, err
 		}
 	}
 

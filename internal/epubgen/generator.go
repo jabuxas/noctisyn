@@ -10,10 +10,20 @@ import (
 func WriteEPUB(book *scraper.Book, outPath string) error {
 	e, err := epub.NewEpub(book.Title)
 	if err != nil {
-		fmt.Println(err.Error())
+		return err
 	}
 	e.SetAuthor(book.Author)
+	e.SetDescription(book.Description)
+	e.SetLang("en_US")
 	e.SetIdentifier(book.SourceURL)
+	coverImgPath, err := e.AddImage(book.CoverURL, "cover.jpg")
+	if err != nil {
+		return err
+	}
+
+	if err := e.SetCover(coverImgPath, ""); err != nil {
+		return err
+	}
 
 	// cssPath, _ := e.AddCSS("style.css", "style.css")
 
