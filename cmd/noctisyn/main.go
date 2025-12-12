@@ -3,20 +3,19 @@ package main
 import (
 	"fmt"
 
-	"github.com/jabuxas/noctisyn/internal/novel"
+	"github.com/jabuxas/noctisyn/internal/epubgen"
+	"github.com/jabuxas/noctisyn/internal/scraper"
 )
 
 func main() {
-	url, err := novel.GetNovelURL("warlock magus")
+	url, err := scraper.Search("warlock magus")
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	book, err := novel.FetchBook(url)
+	book, err := scraper.Fetch(url)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 
-	fmt.Println(book.Chapters[38].Text)
-
-	fmt.Printf("Scraped book: %s by %s\n(%d chapters)\nDesc: %s\n", book.Title, book.Author, len(book.Chapters), book.Description)
+	epubgen.WriteEPUB(book, "test.epub")
 }

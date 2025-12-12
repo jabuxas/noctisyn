@@ -1,4 +1,4 @@
-package novel
+package scraper
 
 import (
 	"strings"

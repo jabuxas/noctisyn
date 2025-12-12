@@ -1,4 +1,4 @@
-package novel
+package scraper
 
 import (
 	"fmt"
@@ -33,7 +33,7 @@ func init() {
 	)
 }
 
-func GetNovelURL(query string) (string, error) {
+func Search(query string) (string, error) {
 	c := collector.Clone()
 
 	var matchURL string
@@ -65,7 +65,7 @@ func GetNovelURL(query string) (string, error) {
 	return matchURL, nil
 }
 
-func FetchBook(novelURL string) (*Book, error) {
+func Fetch(novelURL string) (*Book, error) {
 	infoCollector := collector.Clone()
 	chapterCollector := collector.Clone()
 
