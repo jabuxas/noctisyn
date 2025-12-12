@@ -3,53 +3,152 @@ package tui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 func (m model) View() string {
+	if !m.ready {
+		return "\ninitializing..."
+	}
+
+	downloadsPanelWidth := max(int(float64(m.width)*0.25), 30)
+	mainPanelWidth := m.width - downloadsPanelWidth + 2
+
+	mainPanel := m.renderMainPanel(mainPanelWidth)
+
+	downloadsPanel := m.renderDownloadsPanel(downloadsPanelWidth, m.height-2)
+
+	content := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		mainPanel,
+		downloadsPanel,
+	)
+
+	return content
+}
+
+func (m model) renderMainPanel(width int) string {
 	var s strings.Builder
 
-	s.WriteString("noctisyn\n\n")
+	title := titleStyle.Width(width - 4).Render("noctisyn")
+	s.WriteString(title)
+	s.WriteString("\n\n")
 
 	if len(m.list.Items()) == 0 {
 		if m.searching {
-			s.WriteString("searching...\n")
+			searchingText := lipgloss.NewStyle().
+				Foreground(secondaryColor).
+				Render("Searching...")
+			s.WriteString(searchingText)
 		} else {
 			s.WriteString(m.input.View())
 			s.WriteString("\n\n")
+
 			if m.err != nil {
-				s.WriteString(fmt.Sprintf("error: %v\n", m.err))
+				errorText := lipgloss.NewStyle().
+					Foreground(errorColor).
+					Render(fmt.Sprintf("error: %v", m.err))
+				s.WriteString(errorText)
 			} else {
-				s.WriteString("type a query and press enter to search.\n")
+				helpText := helpStyle.Render("type a query and press enter to search")
+				s.WriteString(helpText)
 			}
 		}
 	} else {
 		s.WriteString(m.list.View())
-		s.WriteString("\n\npress enter to download • esc to search again • ctrl+c to quit\n")
+		s.WriteString("\n\n")
+
+		help := helpStyle.Render("enter: download • esc: new search • ctrl+c: quit")
+		s.WriteString(help)
 	}
 
-	if len(m.jobs) > 0 {
-		s.WriteString("\ndownloads:\n")
-		for _, job := range m.jobs {
-			var status string
-			switch job.status {
-			case statusQueued:
-				status = "queued"
-			case statusFetching:
-				status = "fetching"
-			case statusWriting:
-				status = "writing"
-			case statusDone:
-				status = fmt.Sprintf("done -> %s", job.outPath)
-			case statusFailed:
-				status = fmt.Sprintf("failed: %v", job.err)
-			}
+	return mainPanelStyle.
+		Width(width - 4).
+		Height(m.height - 2).
+		Render(s.String())
+}
 
-			title := job.title
-			if len(title) > 40 {
-				title = title[:37] + "..."
-			}
-			s.WriteString(fmt.Sprintf("  [%s] %s\n", status, title))
+func (m model) renderDownloadsPanel(width int, height int) string {
+	var s strings.Builder
+
+	header := downloadsHeaderStyle.
+		Width(width - 4).
+		Render("downloads")
+	s.WriteString(header)
+	s.WriteString("\n")
+
+	if len(m.jobs) == 0 {
+		emptyText := helpStyle.Render("no active downloads")
+		s.WriteString(emptyText)
+	} else {
+		maxJobsToShow := max((height-8)/3, 1)
+
+		startIdx := 0
+		if len(m.jobs) > maxJobsToShow {
+			startIdx = len(m.jobs) - maxJobsToShow
 		}
+
+		for i := startIdx; i < len(m.jobs); i++ {
+			job := m.jobs[i]
+			s.WriteString(m.renderJob(job, width-6))
+			if i < len(m.jobs)-1 {
+				s.WriteString("\n")
+				divider := dividerStyle.Render(strings.Repeat("─", width-6))
+				s.WriteString(divider)
+				s.WriteString("\n")
+			}
+		}
+
+		if startIdx > 0 {
+			s.WriteString("\n")
+			moreText := helpStyle.Render(fmt.Sprintf("... and %d more", startIdx))
+			s.WriteString(moreText)
+		}
+	}
+
+	return downloadsPanelStyle.
+		Width(width - 2).
+		Height(height).
+		Render(s.String())
+}
+
+func (m model) renderJob(job downloadJob, width int) string {
+	var s strings.Builder
+
+	title := job.title
+	if len(title) > width-10 {
+		title = title[:width-13] + "..."
+	}
+
+	var statusText string
+	switch job.status {
+	case statusQueued:
+		statusText = statusQueuedStyle.Render("⋯  queued")
+	case statusFetching:
+		statusText = statusFetchingStyle.Render("↓ fetching")
+	case statusWriting:
+		statusText = statusFetchingStyle.Render("✎ writing")
+	case statusDone:
+		statusText = statusDoneStyle.Render("✓ done")
+	case statusFailed:
+		statusText = statusFailedStyle.Render("✗ failed")
+	}
+
+	s.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
+	s.WriteString("\n")
+	s.WriteString(statusText)
+
+	if job.status == statusDone && job.outPath != "" {
+		s.WriteString("\n")
+		pathText := helpStyle.Render(fmt.Sprintf("→ %s", job.outPath))
+		s.WriteString(pathText)
+	}
+
+	if job.status == statusFailed && job.err != nil {
+		s.WriteString("\n")
+		errText := statusFailedStyle.Render(fmt.Sprintf("→ %v", job.err))
+		s.WriteString(errText)
 	}
 
 	return s.String()

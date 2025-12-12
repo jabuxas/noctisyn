@@ -3,6 +3,7 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/lipgloss"
 )
 
 type jobStatus string
@@ -31,6 +32,9 @@ type model struct {
 	nextJobID int
 	searching bool
 	err       error
+	width     int
+	height    int
+	ready     bool
 }
 
 func InitialModel() model {
@@ -39,8 +43,30 @@ func InitialModel() model {
 	ti.Focus()
 	ti.Prompt = "> "
 	ti.CharLimit = 64
+	ti.Width = 50
 
-	l := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	delegate := list.NewDefaultDelegate()
+
+	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
+		Foreground(lipgloss.Color("255")).
+		BorderForeground(lipgloss.Color("250"))
+
+	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.
+		Foreground(lipgloss.Color("248")).
+		BorderForeground(lipgloss.Color("250"))
+
+	delegate.Styles.NormalTitle = delegate.Styles.NormalTitle.
+		Foreground(lipgloss.Color("250"))
+
+	delegate.Styles.NormalDesc = delegate.Styles.NormalDesc.
+		Foreground(lipgloss.Color("240"))
+
+	l := list.New([]list.Item{}, delegate, 0, 0)
+
+	l.Styles.Title = l.Styles.Title.
+		Foreground(lipgloss.Color("255")).
+		Bold(true)
+
 	l.Title = "search results"
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(false)

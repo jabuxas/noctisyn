@@ -85,14 +85,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.WindowSizeMsg:
-		h := msg.Height - 10
-		if len(m.jobs) > 0 {
-			h = h - (len(m.jobs) + 3)
-		}
-		if h < 5 {
-			h = 5
-		}
-		m.list.SetSize(msg.Width, h)
+		m.width = msg.Width
+		m.height = msg.Height
+		m.ready = true
+
+		downloadsPanelWidth := max(int(float64(m.width)*0.25), 30)
+
+		mainPanelWidth := m.width - downloadsPanelWidth - 4
+
+		listHeight := max(m.height-12, 5)
+
+		m.list.SetSize(mainPanelWidth-4, listHeight)
 		return m, nil
 	}
 
