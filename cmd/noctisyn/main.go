@@ -17,5 +17,8 @@ func main() {
 		fmt.Println(err.Error())
 	}
 
-	epubgen.WriteEPUB(book, "test.epub")
+	err = epubgen.WriteEPUB(book, "dev/test.epub")
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }

@@ -23,12 +23,19 @@ func wordsInOrder(s, query string) bool {
 }
 
 func extractChapterText(h *colly.HTMLElement) string {
-	var parts []string
+	sel := h.DOM.Clone()
 
-	h.DOM.Find("p").Each(func(_ int, p *goquery.Selection) {
-		t := strings.TrimSpace(p.Text())
-		if t != "" {
-			parts = append(parts, t)
+	sel.Find("script, style, iframe, noscript").Remove()
+	sel.Find(".ads, .ads-holder, .ads-middle, .text-center, #frame").Remove()
+
+	var parts []string
+	sel.Find("p").Each(func(_ int, p *goquery.Selection) {
+		html, err := goquery.OuterHtml(p)
+		if err == nil {
+			html = strings.TrimSpace(html)
+			if html != "<p></p>" && html != "" {
+				parts = append(parts, html)
+			}
 		}
 	})
 
