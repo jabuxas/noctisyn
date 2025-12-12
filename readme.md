@@ -2,7 +2,7 @@
 
 a terminal UI for scraping web novels and generating EPUB files.
 
-![noctisyn](https://ftp.jabuxas.com/noctisyn.png)
+![noctisyn](https://ftp.jabuxas.com/output.gif-1765568237.200434-tpTG2dLv.gif)
 
 ## features
 
