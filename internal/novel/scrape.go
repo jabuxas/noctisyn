@@ -29,11 +29,8 @@ func init() {
 	collector = colly.NewCollector(
 		colly.AllowedDomains("novelfull.net", "novgo.net"),
 		colly.IgnoreRobotsTxt(),
+		colly.Async(true),
 	)
-
-	collector.OnRequest(func(r *colly.Request) {
-		fmt.Println("visiting", r.URL)
-	})
 }
 
 func GetNovelURL(query string) (string, error) {
@@ -60,6 +57,8 @@ func GetNovelURL(query string) (string, error) {
 		return "", err
 	}
 
+	c.Wait()
+
 	if matchURL == "" {
 		return "", fmt.Errorf("no matching novel found for '%s'", query)
 	}
@@ -67,17 +66,18 @@ func GetNovelURL(query string) (string, error) {
 }
 
 func FetchBook(novelURL string) (*Book, error) {
-	c := collector.Clone()
+	infoCollector := collector.Clone()
+	chapterCollector := collector.Clone()
 
 	book := &Book{SourceURL: novelURL}
 
-	c.OnHTML("body", func(h *colly.HTMLElement) {
+	infoCollector.OnHTML("body", func(h *colly.HTMLElement) {
 		book.Title = strings.TrimSpace(h.ChildText(".books h3.title"))
 		book.Author = strings.TrimSpace(h.ChildText("div.info > div:first-child > a:nth-child(2)"))
 		book.Description = strings.TrimSpace(h.ChildText("div.desc-text"))
 
 		chIndex := 1
-		h.ForEach("ul.list-chapter li a, div.chapters a[href*='chapter']", func(_ int, el *colly.HTMLElement) {
+		h.ForEach("ul.list-chapter li a", func(_ int, el *colly.HTMLElement) {
 			chURL := el.Request.AbsoluteURL(el.Attr("href"))
 			title := strings.TrimSpace(el.Text)
 			book.Chapters = append(book.Chapters, Chapter{
@@ -89,10 +89,33 @@ func FetchBook(novelURL string) (*Book, error) {
 		})
 	})
 
-	if err := c.Visit(novelURL); err != nil {
+	chapterCollector.OnHTML("#chapter-content", func(h *colly.HTMLElement) {
+		html, err := h.DOM.Html()
+		if err != nil {
+			fmt.Printf("failed to get html for chapter: %v\n", err)
+		}
+		u := h.Request.URL.String()
+		for i := range book.Chapters {
+			if book.Chapters[i].URL == u {
+				book.Chapters[i].HTML = html
+				break
+			}
+		}
+	})
+
+	if err := infoCollector.Visit(novelURL); err != nil {
 		return nil, err
 	}
 
-	fmt.Printf("Scraped book:\n%s\nby\n%s\n(%d chapters)\n\n\n Desc: %s\n", book.Title, book.Author, len(book.Chapters), book.Description)
+	infoCollector.Wait()
+
+	for _, ch := range book.Chapters {
+		if err := chapterCollector.Visit(ch.URL); err != nil {
+			fmt.Printf("queue failed %s: %v\n", ch.Title, err)
+		}
+	}
+
+	chapterCollector.Wait()
+
 	return book, nil
 }
