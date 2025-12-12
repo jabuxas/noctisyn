@@ -76,7 +76,7 @@ func Fetch(novelURL string) (*Book, error) {
 		book.Author = strings.TrimSpace(h.ChildText("div.info > div:first-child > a:nth-child(2)"))
 		book.Description = strings.TrimSpace(h.ChildText("div.desc-text"))
 
-		chIndex := 1
+		chIndex := len(book.Chapters)
 		h.ForEach("ul.list-chapter li a", func(_ int, el *colly.HTMLElement) {
 			chURL := el.Request.AbsoluteURL(el.Attr("href"))
 			title := strings.TrimSpace(el.Text)
@@ -87,6 +87,13 @@ func Fetch(novelURL string) (*Book, error) {
 			})
 			chIndex++
 		})
+	})
+
+	infoCollector.OnHTML("li.next > a[href]", func(h *colly.HTMLElement) {
+		err := infoCollector.Visit(h.Request.AbsoluteURL(h.Attr("href")))
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 	})
 
 	chapterCollector.OnHTML("#chapter-content", func(h *colly.HTMLElement) {
