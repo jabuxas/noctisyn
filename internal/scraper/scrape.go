@@ -31,6 +31,7 @@ func init() {
 		colly.AllowedDomains("novelfull.net", "novgo.net"),
 		colly.IgnoreRobotsTxt(),
 		colly.Async(true),
+		colly.AllowURLRevisit(),
 	)
 }
 
