@@ -2,7 +2,9 @@ package scraper
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/gocolly/colly/v2"
@@ -24,7 +26,13 @@ type Book struct {
 	Chapters    []Chapter
 }
 
-var collector *colly.Collector
+var (
+	collector *colly.Collector
+	mirrors   []string = []string{
+		"https://novgo.net/",
+		"https://novelfull.net/",
+	}
+)
 
 func init() {
 	collector = colly.NewCollector(
@@ -33,6 +41,11 @@ func init() {
 		colly.Async(true),
 		colly.AllowURLRevisit(),
 	)
+}
+
+func randomSelectMirror() string {
+	i := rand.IntN(2)
+	return mirrors[i]
 }
 
 func Search(query string) ([]*Book, error) {
@@ -51,7 +64,7 @@ func Search(query string) ([]*Book, error) {
 		}
 	})
 
-	search := fmt.Sprintf("https://novelfull.net/search?keyword=%s", url.QueryEscape(query))
+	search := fmt.Sprintf("%ssearch?keyword=%s", randomSelectMirror(), url.QueryEscape(query))
 	if err := c.Visit(search); err != nil {
 		return matched, err
 	}
@@ -63,18 +76,51 @@ func Search(query string) ([]*Book, error) {
 
 func Fetch(novelURL string) (*Book, error) {
 	infoCollector := collector.Clone()
+
+	// infoCollector.OnRequest(func(r *colly.Request) {
+	// 	log.Printf("%s visiting %s\n", time.Now(), r.URL.String())
+	// })
+
 	chapterCollector := collector.Clone()
+
+	// chapterCollector.OnRequest(func(r *colly.Request) {
+	// 	log.Printf("%s visiting %s\n", time.Now(), r.URL.String())
+	// })
+
+	// can be higher, i only tested until 1000
+	chapterCollector.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 1000})
+
+	re := regexp.MustCompile(`^https.*.net\/`)
 
 	book := &Book{SourceURL: novelURL}
 
-	infoCollector.OnHTML("body", func(h *colly.HTMLElement) {
-		book.Title = strings.TrimSpace(h.ChildText(".books h3.title"))
-		book.Author = strings.TrimSpace(h.ChildText("div.info > div:first-child > a:nth-child(2)"))
-		book.Description = strings.TrimSpace(h.ChildText("div.desc-text"))
+	infoCollector.OnHTML("li.next > a[href]", func(h *colly.HTMLElement) {
+		err := infoCollector.Visit(h.Request.AbsoluteURL(h.Attr("href")))
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	})
 
+	infoCollector.OnHTML("body", func(h *colly.HTMLElement) {
+		// only map novel metadata on first visit
+		if h.Request.Depth == 1 {
+			book.Title = strings.TrimSpace(h.ChildText(".books h3.title"))
+			book.Author = strings.TrimSpace(h.ChildText("div.info > div:first-child > a:nth-child(2)"))
+			book.Description = strings.TrimSpace(h.ChildText("div.desc-text"))
+
+			h.ForEach("img[src]", func(_ int, imgEl *colly.HTMLElement) {
+				src := imgEl.Request.AbsoluteURL(imgEl.Attr("src"))
+				if src != "" {
+					book.CoverURL = src
+				}
+			})
+		}
+
+		// maps chapters urls
 		chIndex := len(book.Chapters)
 		h.ForEach("ul.list-chapter li a", func(_ int, el *colly.HTMLElement) {
 			chURL := el.Request.AbsoluteURL(el.Attr("href"))
+			chURL = re.ReplaceAllString(chURL, randomSelectMirror())
 			title := strings.TrimSpace(el.Text)
 			book.Chapters = append(book.Chapters, Chapter{
 				Index: chIndex,
@@ -83,22 +129,6 @@ func Fetch(novelURL string) (*Book, error) {
 			})
 			chIndex++
 		})
-	})
-
-	infoCollector.OnHTML("img", func(h *colly.HTMLElement) {
-		src := h.Attr("src")
-		if src == "" {
-			return
-		}
-		coverURL := h.Request.AbsoluteURL(src)
-		book.CoverURL = coverURL
-	})
-
-	infoCollector.OnHTML("li.next > a[href]", func(h *colly.HTMLElement) {
-		err := infoCollector.Visit(h.Request.AbsoluteURL(h.Attr("href")))
-		if err != nil {
-			fmt.Println(err.Error())
-		}
 	})
 
 	chapterCollector.OnHTML("#chapter-content", func(h *colly.HTMLElement) {
@@ -118,6 +148,7 @@ func Fetch(novelURL string) (*Book, error) {
 
 	infoCollector.Wait()
 
+	// TODO: fallback to other mirror if receives 429/503
 	for _, ch := range book.Chapters {
 		if err := chapterCollector.Visit(ch.URL); err != nil {
 			return nil, err

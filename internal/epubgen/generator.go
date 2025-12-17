@@ -18,11 +18,11 @@ func WriteEPUB(book *scraper.Book, outPath string) error {
 	e.SetIdentifier(book.SourceURL)
 	coverImgPath, err := e.AddImage(book.CoverURL, "cover.jpg")
 	if err != nil {
-		return err
+		return fmt.Errorf("error adding book cover: %w", err)
 	}
 
 	if err := e.SetCover(coverImgPath, ""); err != nil {
-		return err
+		return fmt.Errorf("error setting book cover: %w", err)
 	}
 
 	// cssPath, _ := e.AddCSS("style.css", "style.css")
