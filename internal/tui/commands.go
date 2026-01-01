@@ -13,15 +13,34 @@ func doSearch(query string) tea.Cmd {
 	}
 }
 
-func doDownload(jobID int, book *scraper.Book) tea.Cmd {
-	return func() tea.Msg {
-		novel, err := scraper.Fetch(book.SourceURL)
+func doDownload(jobID int, book *scraper.Book, sub chan tea.Msg) tea.Cmd {
+	go func() {
+		defer close(sub)
+
+		novel, err := scraper.FetchWithProgress(book.SourceURL, func(current, total int, estimatedTimeMs int64) {
+			sub <- downloadProgressMsg{
+				jobID:           jobID,
+				currentChapter:  current,
+				totalChapters:   total,
+				estimatedTimeMs: estimatedTimeMs,
+			}
+		})
+
 		if err != nil {
-			return downloadDoneMsg{jobID: jobID, err: err}
+			sub <- downloadDoneMsg{jobID: jobID, err: err}
+			return
 		}
 
 		filename := safeFilename(novel.Title) + ".epub"
 		err = epubgen.WriteEPUB(novel, filename)
-		return downloadDoneMsg{jobID: jobID, err: err, outPath: filename}
+		sub <- downloadDoneMsg{jobID: jobID, err: err, outPath: filename}
+	}()
+
+	return waitForMsg(sub)
+}
+
+func waitForMsg(sub chan tea.Msg) tea.Cmd {
+	return func() tea.Msg {
+		return <-sub
 	}
 }

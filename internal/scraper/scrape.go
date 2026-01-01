@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gocolly/colly/v2"
 )
@@ -25,6 +26,8 @@ type Book struct {
 	CoverURL    string
 	Chapters    []Chapter
 }
+
+type ProgressCallback func(current, total int, estimatedTimeMs int64)
 
 var (
 	collector *colly.Collector
@@ -74,25 +77,18 @@ func Search(query string) ([]*Book, error) {
 	return matched, nil
 }
 
-func Fetch(novelURL string) (*Book, error) {
+func FetchWithProgress(novelURL string, progressCb ProgressCallback) (*Book, error) {
 	infoCollector := collector.Clone()
-
-	// infoCollector.OnRequest(func(r *colly.Request) {
-	// 	log.Printf("%s visiting %s\n", time.Now(), r.URL.String())
-	// })
-
 	chapterCollector := collector.Clone()
 
-	// chapterCollector.OnRequest(func(r *colly.Request) {
-	// 	log.Printf("%s visiting %s\n", time.Now(), r.URL.String())
-	// })
-
-	// can be higher, i only tested until 1000
 	chapterCollector.Limit(&colly.LimitRule{DomainGlob: "*", Parallelism: 1000})
 
 	re := regexp.MustCompile(`^https.*.net\/`)
 
 	book := &Book{SourceURL: novelURL}
+	
+	var startTime time.Time
+	fetchedCount := 0
 
 	infoCollector.OnHTML("li.next > a[href]", func(h *colly.HTMLElement) {
 		err := infoCollector.Visit(h.Request.AbsoluteURL(h.Attr("href")))
@@ -102,7 +98,6 @@ func Fetch(novelURL string) (*Book, error) {
 	})
 
 	infoCollector.OnHTML("body", func(h *colly.HTMLElement) {
-		// only map novel metadata on first visit
 		if h.Request.Depth == 1 {
 			book.Title = strings.TrimSpace(h.ChildText(".books h3.title"))
 			book.Author = strings.TrimSpace(h.ChildText("div.info > div:first-child > a:nth-child(2)"))
@@ -116,7 +111,6 @@ func Fetch(novelURL string) (*Book, error) {
 			})
 		}
 
-		// maps chapters urls
 		chIndex := len(book.Chapters)
 		h.ForEach("ul.list-chapter li a", func(_ int, el *colly.HTMLElement) {
 			chURL := el.Request.AbsoluteURL(el.Attr("href"))
@@ -137,6 +131,15 @@ func Fetch(novelURL string) (*Book, error) {
 		for i := range book.Chapters {
 			if book.Chapters[i].URL == u {
 				book.Chapters[i].Text = text
+				fetchedCount++
+				
+				if progressCb != nil {
+					elapsed := time.Since(startTime).Milliseconds()
+					avgTimePerChapter := elapsed / int64(fetchedCount)
+					remaining := len(book.Chapters) - fetchedCount
+					estimatedTimeMs := avgTimePerChapter * int64(remaining)
+					progressCb(fetchedCount, len(book.Chapters), estimatedTimeMs)
+				}
 				break
 			}
 		}
@@ -147,8 +150,9 @@ func Fetch(novelURL string) (*Book, error) {
 	}
 
 	infoCollector.Wait()
+	
+	startTime = time.Now()
 
-	// TODO: fallback to other mirror if receives 429/503
 	for _, ch := range book.Chapters {
 		if err := chapterCollector.Visit(ch.URL); err != nil {
 			return nil, err
@@ -158,4 +162,8 @@ func Fetch(novelURL string) (*Book, error) {
 	chapterCollector.Wait()
 
 	return book, nil
+}
+
+func Fetch(novelURL string) (*Book, error) {
+	return FetchWithProgress(novelURL, nil)
 }

@@ -21,16 +21,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case tea.KeyEnter:
 				item := m.list.SelectedItem().(bookItem)
 
+				sub := make(chan tea.Msg)
 				job := downloadJob{
 					id:     m.nextJobID,
 					title:  item.book.Title,
 					url:    item.book.SourceURL,
 					status: statusQueued,
+					sub:    sub,
 				}
 				m.jobs = append(m.jobs, job)
 				m.nextJobID++
 
-				return m, doDownload(job.id, item.book)
+				return m, doDownload(job.id, item.book, sub)
 
 			case tea.KeyEsc:
 				m.list.SetItems([]list.Item{})
@@ -67,6 +69,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.list.SetItems(items)
 		m.input.Blur()
+		return m, nil
+
+	case downloadProgressMsg:
+		for i := range m.jobs {
+			if m.jobs[i].id == msg.jobID {
+				m.jobs[i].currentChapter = msg.currentChapter
+				m.jobs[i].totalChapters = msg.totalChapters
+				m.jobs[i].estimatedTimeMs = msg.estimatedTimeMs
+				if m.jobs[i].status == statusQueued {
+					m.jobs[i].status = statusFetching
+				}
+				return m, waitForMsg(m.jobs[i].sub)
+			}
+		}
 		return m, nil
 
 	case downloadDoneMsg:

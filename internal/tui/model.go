@@ -1,6 +1,7 @@
 package tui
 
 import (
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
@@ -17,12 +18,16 @@ const (
 )
 
 type downloadJob struct {
-	id      int
-	title   string
-	url     string
-	status  jobStatus
-	err     error
-	outPath string
+	id              int
+	title           string
+	url             string
+	status          jobStatus
+	err             error
+	outPath         string
+	currentChapter  int
+	totalChapters   int
+	estimatedTimeMs int64
+	sub             chan tea.Msg
 }
 
 type model struct {

@@ -126,7 +126,13 @@ func (m model) renderJob(job downloadJob, width int) string {
 	case statusQueued:
 		statusText = statusQueuedStyle.Render("⋯  queued")
 	case statusFetching:
-		statusText = statusFetchingStyle.Render("↓ fetching")
+		if job.totalChapters > 0 {
+			percentage := int(float64(job.currentChapter) / float64(job.totalChapters) * 100)
+			progressLine := fmt.Sprintf("↓ fetching: %d/%d (%d%%)", job.currentChapter, job.totalChapters, percentage)
+			statusText = statusFetchingStyle.Render(progressLine)
+		} else {
+			statusText = statusFetchingStyle.Render("↓ fetching")
+		}
 	case statusWriting:
 		statusText = statusFetchingStyle.Render("✎ writing")
 	case statusDone:
@@ -138,6 +144,13 @@ func (m model) renderJob(job downloadJob, width int) string {
 	s.WriteString(lipgloss.NewStyle().Bold(true).Render(title))
 	s.WriteString("\n")
 	s.WriteString(statusText)
+
+	if job.status == statusFetching && job.estimatedTimeMs > 0 {
+		s.WriteString("\n")
+		estimatedSec := job.estimatedTimeMs / 1000
+		timeText := helpStyle.Render(fmt.Sprintf("→ estimated: %ds remaining", estimatedSec))
+		s.WriteString(timeText)
+	}
 
 	if job.status == statusDone && job.outPath != "" {
 		s.WriteString("\n")
